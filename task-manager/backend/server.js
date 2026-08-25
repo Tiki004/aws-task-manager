@@ -1,24 +1,36 @@
 const express = require('express');
+const cors = require('cors');
 const { Pool } = require('pg');
-const { SSMClient, GetParameterCommand } = require("@aws-sdk/client-ssm");
+const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
-// Initialize AWS SSM Client (IAM handles credentials automatically when deployed)
-const ssmClient = new SSMClient({ region: "us-east-1" });
+// Initialize AWS Secrets Manager Client (IAM handles credentials automatically when deployed)
+const secretsClient = new SecretsManagerClient({ region: "us-east-2" });
 
 let pool;
 
 async function initDb() {
   try {
-    // Fetch the DB Password safely from SSM Parameter Store (Free alternative to Secrets)
-    const command = new GetParameterCommand({
-      Name: "/prod/db_password",
-      WithDecryption: true,
+    // Fetch the DB Password securely from Secrets Manager
+    const command = new GetSecretValueCommand({
+      SecretId: "prod/db_password",
     });
-    const ssmResponse = await ssmClient.send(command);
-    const dbPassword = ssmResponse.Parameter.Value;
+    const secretResponse = await secretsClient.send(command);
+
+    // Secrets Manager can store either a plain string or a JSON blob.
+    // If you used "Credentials for RDS database" when creating the secret,
+    // it stores JSON like { "username": "...", "password": "..." } — handle both cases.
+    let dbPassword;
+    try {
+      const parsed = JSON.parse(secretResponse.SecretString);
+      dbPassword = parsed.password;
+    } catch {
+      // Not JSON — it's a plain string secret
+      dbPassword = secretResponse.SecretString;
+    }
 
     // Connect to RDS / Aurora PostgreSQL Instance
     pool = new Pool({
@@ -28,7 +40,7 @@ async function initDb() {
       password: dbPassword,
       port: 5432,
     });
-    
+
     // Create a simple table
     await pool.query(`
       CREATE TABLE IF NOT EXISTS tasks (
@@ -59,4 +71,3 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
   initDb();
 });
-
