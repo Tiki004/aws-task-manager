@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Task Manager</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        input { flex: 1; padding: 8px; }
+        button { padding: 8px 16px; background: #0070f3; color: white; border: none; cursor: pointer; }
+        ul { list-style: none; padding: 0; }
+        li { padding: 10px; border-bottom: 1px solid #eee; }
+    </style>
+</head>
+<body>
+    <h2>My AWS Task Manager</h2>
+    <div class="input-group">
+        <input type="text" id="taskInput" placeholder="Enter a new task...">
+        <button onclick="addTask()">Add Task</button>
+    </div>
+    <ul id="taskList"></ul>
+
+    <script>
+        // Replace this string later with your AWS ECS Load Balancer URL
+        const API_URL = "http://localhost:8080"; 
+
+        async function fetchTasks() {
+            try {
+                const res = await fetch(`${API_URL}/api/tasks`);
+                const tasks = await res.json();
+                const list = document.getElementById('taskList');
+                list.innerHTML = tasks.map(t => `<li>${t.title}</li>`).join('');
+            } catch (err) {
+                console.error("Could not fetch tasks:", err);
+            }
+        }
+
+        async function addTask() {
+            const input = document.getElementById('taskInput');
+            if (!input.value.trim()) return;
+
+            try {
+                await fetch(`${API_URL}/api/tasks`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: input.value })
+                });
+                input.value = '';
+                fetchTasks();
+            } catch (err) {
+                console.error("Could not add task:", err);
+            }
+        }
+
+        // Load tasks right away when page opens
+        fetchTasks();
+    </script>
+</body>
+</html>
