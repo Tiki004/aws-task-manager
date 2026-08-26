@@ -34,9 +34,9 @@ async function initDb() {
 
     // Connect to RDS / Aurora PostgreSQL Instance
     pool = new Pool({
-      user: 'db_admin',
+      user: 'postgres',
       host: process.env.DB_HOST, // Set via ECS Environment Variable
-      database: 'taskdb',
+      database: 'postgres',
       password: dbPassword,
       port: 5432,
     });
