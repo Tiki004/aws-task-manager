@@ -14,33 +14,25 @@ let pool;
 
 async function initDb() {
   try {
-    // Fetch the DB Password securely from Secrets Manager
+    // Fetch the DB credentials securely from Secrets Manager
     const command = new GetSecretValueCommand({
       SecretId: "prod/db_password",
     });
     const secretResponse = await secretsClient.send(command);
 
-    // Secrets Manager can store either a plain string or a JSON blob.
-    // If you used "Credentials for RDS database" when creating the secret,
-    // it stores JSON like { "username": "...", "password": "..." } — handle both cases.
-    let dbPassword;
-    try {
-      const parsed = JSON.parse(secretResponse.SecretString);
-      dbPassword = parsed.password;
-    } catch {
-      // Not JSON — it's a plain string secret
-      dbPassword = secretResponse.SecretString;
-    }
+    // This secret was created via "Credentials for RDS database", so it's
+    // a JSON blob containing username, password, host, port, etc.
+    const secret = JSON.parse(secretResponse.SecretString);
 
     // Connect to RDS / Aurora PostgreSQL Instance
     pool = new Pool({
-      user: 'postgres',
-      host: process.env.DB_HOST,
+      user: secret.username,
+      host: process.env.DB_HOST, // Set via ECS Environment Variable
       database: 'postgres',
-      password: dbPassword,
+      password: secret.password,
       port: 5432,
       ssl: {
-        rejectUnauthorized: false  // Accepts RDS's SSL cert without needing the full CA bundle
+        rejectUnauthorized: false
       }
     });
 
