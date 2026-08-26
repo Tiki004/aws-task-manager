@@ -3,58 +3,343 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AWS Task Manager</title>
+    <title>Task Manager</title>
+
     <style>
-        body { font-family: Arial, sans-serif; max-width: 400px; margin: 50px auto; padding: 20px; }
-        .input-group { display: flex; gap: 10px; margin-bottom: 20px; }
-        input { flex: 1; padding: 8px; }
-        button { padding: 8px 16px; background: #0070f3; color: white; border: none; cursor: pointer; }
-        ul { list-style: none; padding: 0; }
-        li { padding: 10px; border-bottom: 1px solid #eee; }
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+                         Roboto, Arial, sans-serif;
+            background: linear-gradient(135deg, #eef2ff, #f8fafc);
+            color: #1e293b;
+            padding: 40px 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 720px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 28px;
+        }
+
+        .header h1 {
+            font-size: 2.4rem;
+            margin-bottom: 8px;
+            color: #0f172a;
+        }
+
+        .header p {
+            color: #64748b;
+            font-size: 1rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: 18px;
+            padding: 28px;
+            box-shadow: 0 12px 35px rgba(15, 23, 42, 0.10);
+            border: 1px solid #e2e8f0;
+        }
+
+        .form {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        #taskInput {
+            flex: 1;
+            min-width: 0;
+            padding: 14px 16px;
+            border: 1px solid #cbd5e1;
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;
+        }
+
+        #taskInput:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        }
+
+        #addButton {
+            border: none;
+            border-radius: 10px;
+            padding: 14px 22px;
+            background: #4f46e5;
+            color: white;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #addButton:hover {
+            background: #4338ca;
+        }
+
+        #addButton:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .section-title {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .section-title h2 {
+            font-size: 1.2rem;
+            color: #334155;
+        }
+
+        #status {
+            font-size: 0.9rem;
+            color: #64748b;
+        }
+
+        #taskList {
+            list-style: none;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #taskList li {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+            font-size: 1rem;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 28px 10px !important;
+            color: #94a3b8;
+        }
+
+        .error {
+            color: #b91c1c !important;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 24px 14px;
+            }
+
+            .card {
+                padding: 20px;
+            }
+
+            .form {
+                flex-direction: column;
+            }
+
+            #addButton {
+                width: 100%;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
     </style>
 </head>
+
 <body>
-    <h2>My AWS Task Manager</h2>
-    <div class="input-group">
-        <input type="text" id="taskInput" placeholder="Enter a new task...">
-        <button onclick="addTask()">Add Task</button>
-    </div>
-    <ul id="taskList"></ul>
+
+    <main class="container">
+
+        <header class="header">
+            <h1>Task Manager</h1>
+            <p>Add tasks and view everything currently stored in your API.</p>
+        </header>
+
+        <section class="card">
+
+            <form class="form" id="taskForm">
+
+                <input
+                    type="text"
+                    id="taskInput"
+                    placeholder="Enter a new task..."
+                    autocomplete="off"
+                >
+
+                <button type="submit" id="addButton">
+                    Add Task
+                </button>
+
+            </form>
+
+            <div class="section-title">
+                <h2>Your Tasks</h2>
+                <span id="status">Loading...</span>
+            </div>
+
+            <ul id="taskList"></ul>
+
+        </section>
+
+    </main>
 
     <script>
-        // Replace this string later with your AWS ECS Load Balancer URL
-        const API_URL = "http://3.17.25.199:8080"; 
 
+        // Replace this later with your AWS ECS Load Balancer URL
+        const API_URL = "http://3.17.25.199:8080";
+
+
+        // Get all tasks
         async function fetchTasks() {
+
+            const list = document.getElementById("taskList");
+            const status = document.getElementById("status");
+
+            status.textContent = "Loading...";
+            status.classList.remove("error");
+
             try {
+
                 const res = await fetch(`${API_URL}/api/tasks`);
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
                 const tasks = await res.json();
-                const list = document.getElementById('taskList');
-                list.innerHTML = tasks.map(t => `<li>${t.title}</li>`).join('');
+
+                list.innerHTML = "";
+
+                if (tasks.length === 0) {
+
+                    const emptyMessage = document.createElement("li");
+
+                    emptyMessage.className = "empty";
+
+                    emptyMessage.textContent =
+                        "No tasks yet. Add your first task above!";
+
+                    list.appendChild(emptyMessage);
+
+                } else {
+
+                    tasks.forEach(task => {
+
+                        const item = document.createElement("li");
+
+                        item.textContent = task.title;
+
+                        list.appendChild(item);
+
+                    });
+                }
+
+                status.textContent =
+                    `${tasks.length} task${tasks.length === 1 ? "" : "s"}`;
+
             } catch (err) {
+
                 console.error("Could not fetch tasks:", err);
+
+                list.innerHTML = "";
+
+                const errorMessage = document.createElement("li");
+
+                errorMessage.className = "empty error";
+
+                errorMessage.textContent =
+                    "Could not load tasks. Check that the API is running.";
+
+                list.appendChild(errorMessage);
+
+                status.textContent = "Connection error";
+                status.classList.add("error");
             }
         }
 
+
+        // Add a new task
         async function addTask() {
-            const input = document.getElementById('taskInput');
-            if (!input.value.trim()) return;
+
+            const input = document.getElementById("taskInput");
+            const button = document.getElementById("addButton");
+
+            const title = input.value.trim();
+
+            if (!title) {
+                input.focus();
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = "Adding...";
 
             try {
-                await fetch(`${API_URL}/api/tasks`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: input.value })
+
+                const res = await fetch(`${API_URL}/api/tasks`, {
+
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        title: title
+                    })
                 });
-                input.value = '';
-                fetchTasks();
+
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+
+                input.value = "";
+
+                await fetchTasks();
+
             } catch (err) {
+
                 console.error("Could not add task:", err);
+
+                alert(
+                    "Could not add the task. Please check that the API is running."
+                );
+
+            } finally {
+
+                button.disabled = false;
+                button.textContent = "Add Task";
             }
         }
 
-        // Load tasks right away when page opens
+
+        // Handle form submission
+        document
+            .getElementById("taskForm")
+            .addEventListener("submit", function(event) {
+
+                event.preventDefault();
+
+                addTask();
+            });
+
+
+        // Load tasks when the page opens
         fetchTasks();
+
     </script>
+
 </body>
 </html>
