@@ -23,7 +23,7 @@
 
     <script>
         // Replace this string later with your AWS ECS Load Balancer URL
-        const API_URL = "http://localhost:8080"; 
+        const API_URL = "http://3.17.25.199:8080"; 
 
         async function fetchTasks() {
             try {
